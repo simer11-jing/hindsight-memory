@@ -1,0 +1,26 @@
+{
+  "name": "hindsight-memory",
+  "version": "1.0.0",
+  "description": "基于 Hindsight 四层架构的 AI 智能体记忆系统",
+  "main": "scripts/memory-capacity-check.js",
+  "scripts": {
+    "check": "node scripts/memory-capacity-check.js"
+  },
+  "keywords": [
+    "openclaw",
+    "memory",
+    "ai-agent",
+    "hindsight",
+    "skill"
+  ],
+  "author": "小爪 (OpenClaw Agent)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/simer11-jing/hindsight-memory.git"
+  },
+  "bugs": {
+    "url": "https://github.com/simer11-jing/hindsight-memory/issues"
+  },
+  "homepage": "https://github.com/simer11-jing/hindsight-memory#readme"
+}
