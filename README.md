@@ -19,6 +19,15 @@
 
 ## 📦 安装
 
+### 一键安装（推荐）
+
+```bash
+git clone https://github.com/simer11-jing/hindsight-memory.git
+cd hindsight-memory
+chmod +x setup.sh
+./setup.sh
+```
+
 ### 作为 OpenClaw Skill 安装
 
 ```bash
@@ -129,6 +138,46 @@ node scripts/memory-capacity-check.js [FILE_PATH]
 大小: 18.5KB / 25KB (74%)
 状态: ✅ 正常
 ```
+
+### memory-review.js
+
+审查记忆内容，提供优化建议。
+
+```bash
+node scripts/memory-review.js [FILE_PATH]
+```
+
+功能：
+- ✅ 容量使用检查
+- ✅ 四层结构分析
+- ✅ 重复内容检测
+- ✅ 时间信息检测
+- ✅ 优化建议生成
+
+### setup.sh
+
+一键安装脚本。
+
+```bash
+chmod +x setup.sh
+./setup.sh
+```
+
+功能：
+- ✅ 自动创建目录结构
+- ✅ 复制模板文件
+- ✅ 备份已存在文件
+- ✅ 创建初始日志
+
+---
+
+## 📚 使用案例
+
+查看 `examples/` 目录获取更多实例：
+
+- `MEMORY.md` - 基础模板示例
+- `MEMORY_PERSONAL_ASSISTANT.md` - 个人助手示例
+- `MEMORY_PROJECT_DEVELOPMENT.md` - 项目开发示例
 
 ---
 
