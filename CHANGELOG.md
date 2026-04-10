@@ -7,13 +7,40 @@
 
 ---
 
-## [Unreleased]
+## [2.0.0] - 2026-04-11
 
-### 计划添加
-- Web 可视化界面
-- 更多工具脚本（备份、导出、合并）
-- 跨平台支持
-- AI 辅助功能
+### 新增
+- ✨ **5 层架构**
+  - 新增 Ephemeral（短期工作记忆）层
+  - 完整支持：Ephemeral → Experiences → Observations → World Facts → Mental Models
+
+- ✨ **向量语义搜索**
+  - 本地模型支持（@xenova/transformers）
+  - MiniLM、BGE、MPNet 等模型
+  - 云端模型支持（OpenAI 兼容）
+
+- ✨ **硅基流动集成**
+  - BGE-Large-ZH / BGE-Base-ZH / BGE-Small-ZH
+  - BGE-M3
+  - Qwen3-Embedding-8B/4B/0.6B
+  - 4096 维高精度向量
+
+- ✨ **自定义 API 支持**
+  - 任意 OpenAI 兼容接口
+  - 国内大模型 API（智谱、阿里等）
+  - 配置管理命令行工具
+
+- ✨ **混合检索**
+  - 关键词 + 语义向量 RRF 融合
+  - 多层筛选
+  - 相似度阈值可调
+
+### 改进
+- 📝 README 更新为 v2.0.0
+- 📝 README_EN 英文版更新
+- 📝 SKILL.md 更新
+- 🔧 配置系统重构（lib/config.js）
+- 🔧 语义搜索模块重构
 
 ---
 
@@ -33,18 +60,10 @@
   - 优化建议生成
 
 - ✨ **CONTRIBUTING.md** - 贡献指南
-  - 如何报告问题
-  - 如何提交代码
-  - 开发指南
-  - 代码规范
 
 - ✨ **实际使用案例**
   - `MEMORY_PERSONAL_ASSISTANT.md` - 个人助手示例
   - `MEMORY_PROJECT_DEVELOPMENT.md` - 项目开发示例
-
-### 改进
-- 📝 完善文档结构
-- 📚 增加更多使用示例
 
 ---
 
@@ -52,37 +71,19 @@
 
 ### 新增
 - 🎉 **初始发布**
-- 📚 四层记忆架构文档
-  - Mental Models（精炼智慧）
-  - Observations（观察到的模式）
-  - World Facts（客观事实）
-  - Experiences（我的经历）
-
-- 📝 **记忆模板**
-  - MEMORY.md - 长期记忆模板
-  - DAILY_LOG.md - 每日日志模板
-
-- 🔧 **工具脚本**
-  - memory-capacity-check.js - 容量检查工具
-
-- 📖 **文档**
-  - README.md - 中文文档
-  - README_EN.md - 英文文档
-  - SKILL.md - Skill 说明
-  - LICENSE - MIT 开源许可
-
-- 📦 **配置文件**
-  - package.json - npm 配置
-  - .gitignore - Git 忽略规则
+- 📚 四层记忆架构
+- 📝 记忆模板
+- 🔧 工具脚本
+- 📖 完整文档
 
 ---
 
 ## 版本说明
 
-- **[Unreleased]**: 开发中的功能
+- **[2.0.0]**: 向量搜索版本
 - **[1.1.0]**: 功能增强版本
 - **[1.0.0]**: 初始发布版本
 
 ---
 
-_此项目由小爪 (OpenClaw Agent) 创建并维护_
+_此项目由小爪 (OpenClaw Agent) 创建并维护_ 🐾
