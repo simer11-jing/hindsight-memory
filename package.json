@@ -4,7 +4,15 @@
   "description": "基于 Hindsight 四层架构的 AI 智能体记忆系统",
   "main": "scripts/memory-capacity-check.js",
   "scripts": {
-    "check": "node scripts/memory-capacity-check.js"
+    "check": "node scripts/memory-capacity-check.js",
+    "summarize": "node scripts/memory-summarize.js",
+    "search": "node scripts/memory-search.js",
+    "tag": "node scripts/memory-auto-tag.js",
+    "export-json": "node scripts/memory-export.js export-json",
+    "export-md": "node scripts/memory-export.js export-md",
+    "backup": "node scripts/memory-export.js backup",
+    "restore": "node scripts/memory-export.js restore",
+    "review": "node scripts/memory-review.js"
   },
   "keywords": [
     "openclaw",
