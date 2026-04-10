@@ -8,7 +8,13 @@
     "check": "node scripts/memory-capacity-check.js",
     "tempr": "node scripts/memory-tempr.js",
     "semantic": "node scripts/memory-semantic.js",
-    "index": "node scripts/memory-index.js"
+    "semantic:config": "node scripts/memory-semantic.js config",
+    "semantic:models": "node scripts/memory-semantic.js config models",
+    "semantic:enable": "node scripts/memory-semantic.js config enable",
+    "semantic:disable": "node scripts/memory-semantic.js config disable",
+    "semantic:status": "node scripts/memory-semantic.js 状态",
+    "index": "node scripts/memory-index.js",
+    "vector:index": "node scripts/memory-semantic.js 索引"
   },
   "keywords": ["memory", "ai", "agent", "storage", "semantic-search", "vector"],
   "license": "MIT",
