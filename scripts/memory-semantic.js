@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * 语义搜索命令行工具 - 支持配置
+ * 语义搜索 - 支持本地 + 云端(自定义API)
  */
 
 const fs = require('fs');
@@ -18,9 +18,8 @@ try {
   ConfigManager = null;
 }
 
-const MEMORY_DIR = path.join(os.homedir(), '.openclaw/agents/main');
-const MEMORY_FILE = path.join(MEMORY_DIR, 'MEMORY.md');
-const INDEX_FILE = path.join(MEMORY_DIR, '.memory-index.json');
+const MEMORY_FILE = path.join(os.homedir(), '.openclaw/agents/main/MEMORY.md');
+const INDEX_FILE = path.join(os.homedir(), '.openclaw/agents/main/.memory-index.json');
 
 async function loadMemories() {
   const entries = [];
@@ -64,64 +63,46 @@ function saveIndex(entries) {
 async function main() {
   const args = process.argv.slice(2);
   
-  if (args.length === 0) {
+  // 配置命令
+  if (args[0] === '配置' || args[0] === 'config') {
+    if (!ConfigManager) { console.log('❌ 配置模块不可用'); process.exit(1); }
+    const config = new ConfigManager();
+    const sub = args[1];
+    
+    if (!sub || sub === 'show') {
+      config.showConfig();
+    } else if (sub === 'models') {
+      config.listModels();
+    } else if (sub === 'enable-local') {
+      config.enableVector({ type: 'local', model: args[2] || 'Xenova/all-MiniLM-L6-v2' });
+    } else if (sub === 'enable-cloud') {
+      const apiKey = process.env.OPENAI_API_KEY || args[2] || '';
+      const baseURL = args[3] || '';
+      const model = args[4] || 'text-embedding-3-small';
+      config.enableVector({ type: 'cloud', apiKey, baseURL, cloudModel: model });
+    } else if (sub === 'disable') {
+      config.disableVector();
+    } else if (sub === 'set-url' && args[2]) {
+      config.setCloudConfig(null, args[2]);
+    } else if (sub === 'set-key' && args[2]) {
+      config.setCloudConfig(args[2]);
+    }
+    process.exit(0);
+  }
+  
+  // 状态
+  if (!args.length) {
     if (ConfigManager) {
-      const config = new ConfigManager();
-      console.log(`
-╔════════════════════════════════════════╗
-║   语义搜索工具 v2.0                     ║
-╚════════════════════════════════════════╝
-
-状态: ${config.get('vector.enabled') ? '✅ 已启用' : '❌ 已禁用'}
-模型: ${config.get('vector.model')}
-维度: ${config.get('vector.dimensions')}
-设备: ${config.get('vector.device')}
-
-使用:
-  node memory-semantic.js 索引    # 建立索引
-  node memory-semantic.js "查询"  # 语义搜索
-  node memory-semantic.js 配置    # 配置管理
-`);
+      new ConfigManager().showConfig();
     } else {
-      console.log('用法: node memory-semantic.js [索引|"查询"]');
+      console.log('用法: node memory-semantic.js [索引|"查询"|配置]');
     }
     process.exit(0);
   }
   
   const cmd = args[0];
   
-  if (cmd === '配置' || cmd === 'config') {
-    if (!ConfigManager) {
-      console.log('❌ 配置模块不可用');
-      process.exit(1);
-    }
-    const config = new ConfigManager();
-    const subCmd = args[1];
-    
-    if (!subCmd || subCmd === 'show') {
-      console.log(`\n📊 当前配置:
-   向量搜索: ${config.get('vector.enabled') ? '✅ 启用' : '❌ 禁用'}
-   模型: ${config.get('vector.model')}
-   维度: ${config.get('vector.dimensions')}
-   设备: ${config.get('vector.device')}
-   阈值: ${config.get('vector.threshold')}\n`);
-    } else if (subCmd === 'models') {
-      config.listModels();
-    } else if (subCmd === 'enable') {
-      const opts = {};
-      for (let i = 2; i < args.length; i++) {
-        if (args[i] === '--model' && args[i+1]) opts.model = args[++i];
-        if (args[i] === '--device' && args[i+1]) opts.device = args[++i];
-      }
-      config.enableVector(opts);
-    } else if (subCmd === 'disable') {
-      config.disableVector();
-    } else if (subCmd === 'set-model' && args[2]) {
-      config.setModel(args[2]);
-    }
-    process.exit(0);
-  }
-  
+  // 索引
   if (cmd === '索引' || cmd === 'index') {
     console.log('⏳ 加载记忆...');
     const entries = await loadMemories();
@@ -134,17 +115,17 @@ async function main() {
     process.exit(0);
   }
   
+  // 搜索
   const query = cmd;
   let options = { limit: 10, layer: 'all', threshold: 0.7 };
   
   for (let i = 1; i < args.length; i++) {
-    const arg = args[i];
-    if (arg === '--layer' && args[i + 1]) options.layer = args[++i];
-    if (arg === '--limit' && args[i + 1]) options.limit = parseInt(args[++i]);
-    if (arg === '--threshold' && args[i + 1]) options.threshold = parseFloat(args[++i]);
+    if (args[i] === '--layer' && args[i + 1]) options.layer = args[++i];
+    if (args[i] === '--limit' && args[i + 1]) options.limit = parseInt(args[++i]);
+    if (args[i] === '--threshold' && args[i + 1]) options.threshold = parseFloat(args[++i]);
   }
   
-  console.log(`🔍 语义搜索: "${query}"`);
+  console.log(`🔍 搜索: "${query}"`);
   
   const entries = await loadMemories();
   const index = loadIndex();
@@ -160,21 +141,16 @@ async function main() {
   const semantic = new SemanticSearch();
   const results = await semantic.search(entries, query, options);
   
-  if (results.length === 0) {
-    console.log('❌ 未找到相似结果');
-    console.log('💡 请先运行: node memory-semantic.js 索引');
+  if (!results.length) {
+    console.log('❌ 未找到结果，请先建立索引: node memory-semantic.js 索引');
     process.exit(0);
   }
   
-  console.log(`\n╔═════════════════════════════════╗`);
-  console.log(`║   搜索结果 (${results.length} 条)            ║`);
-  console.log(`╚═════════════════════════════════╝`);
-  
+  console.log(`\n═══ 搜索结果 (${results.length} 条) ===`);
   for (let i = 0; i < results.length; i++) {
     const r = results[i];
     const emoji = LAYERS[r.entry.layer]?.emoji || '📄';
-    const content = r.entry.content.substring(0, 80);
-    console.log(`${i + 1}. [${emoji}] ${r.score.toFixed(3)} - ${content}...`);
+    console.log(`${i + 1}. [${emoji}] ${r.score.toFixed(3)} - ${r.entry.content.substring(0, 60)}...`);
   }
 }
 
