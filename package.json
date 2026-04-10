@@ -5,6 +5,7 @@
   "main": "scripts/memory-capacity-check.js",
   "scripts": {
     "check": "node scripts/memory-capacity-check.js",
+    "tempr": "node scripts/memory-tempr.js",
     "summarize": "node scripts/memory-summarize.js",
     "search": "node scripts/memory-search.js",
     "tag": "node scripts/memory-auto-tag.js",
