@@ -1,35 +1,22 @@
 {
   "name": "hindsight-memory",
-  "version": "1.0.0",
-  "description": "基于 Hindsight 四层架构的 AI 智能体记忆系统",
-  "main": "scripts/memory-capacity-check.js",
+  "version": "2.0.0",
+  "description": "5-layer memory system with semantic search, TTL, compression, and archival",
+  "main": "lib/memory-manager.js",
   "scripts": {
+    "test": "node test/test.js",
     "check": "node scripts/memory-capacity-check.js",
     "tempr": "node scripts/memory-tempr.js",
-    "summarize": "node scripts/memory-summarize.js",
-    "search": "node scripts/memory-search.js",
-    "tag": "node scripts/memory-auto-tag.js",
-    "export-json": "node scripts/memory-export.js export-json",
-    "export-md": "node scripts/memory-export.js export-md",
-    "backup": "node scripts/memory-export.js backup",
-    "restore": "node scripts/memory-export.js restore",
-    "review": "node scripts/memory-review.js"
+    "semantic": "node scripts/memory-semantic.js",
+    "index": "node scripts/memory-index.js"
   },
-  "keywords": [
-    "openclaw",
-    "memory",
-    "ai-agent",
-    "hindsight",
-    "skill"
-  ],
-  "author": "小爪 (OpenClaw Agent)",
+  "keywords": ["memory", "ai", "agent", "storage", "semantic-search", "vector"],
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/simer11-jing/hindsight-memory.git"
+  "dependencies": {
+    "@xenova/transformers": "^2.17.2"
   },
-  "bugs": {
-    "url": "https://github.com/simer11-jing/hindsight-memory/issues"
-  },
-  "homepage": "https://github.com/simer11-jing/hindsight-memory#readme"
+  "optionalDependencies": {
+    "better-sqlite3": "^9.0.0",
+    "lancedb": "^0.0.1"
+  }
 }
