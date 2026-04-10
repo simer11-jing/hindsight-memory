@@ -1,28 +1,34 @@
 # 🧠 Hindsight Memory System
 
-> A Four-Layer Memory Architecture for AI Agents
+> A Five-Layer Memory Architecture for AI Agents with Local/Cloud Vector Search
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-Compatible-blue.svg)](https://openclaw.ai)
+[![Version](https://img.shields.io/badge/version-2.0.0-green.svg)](https://github.com/simer11-jing/hindsight-memory)
 
 ---
 
 ## ✨ Features
 
-- 🏗️ **Four-Layer Architecture** - Mental Models → Observations → World Facts → Experiences
+- 🏗️ **Five-Layer Architecture** - Ephemeral → Experiences → Observations → World Facts → Mental Models
 - 💾 **Persistent Storage** - File-based memory that survives restarts
-- 🔍 **Intelligent Retrieval** - Multi-source memory with semantic search
+- 🔍 **Intelligent Retrieval** - Keyword + Semantic Vector Hybrid Search
+- ☁️ **Cloud Support** - Custom API support (OpenAI Compatible)
 - 📏 **Capacity Management** - Automatic warnings to prevent overflow
+- ⚙️ **Flexible Configuration** - Multiple models, local/cloud switching
 - 🔄 **Periodic Review** - Auto-organization to keep memories refined
 
 ---
 
 ## 📦 Installation
 
-### Install as OpenClaw Skill
+### Quick Install (Recommended)
 
 ```bash
-openclaw skills install https://github.com/simer11-jing/hindsight-memory
+git clone https://github.com/simer11-jing/hindsight-memory.git
+cd hindsight-memory
+chmod +x setup.sh
+./setup.sh
 ```
 
 ### Manual Installation
@@ -30,6 +36,7 @@ openclaw skills install https://github.com/simer11-jing/hindsight-memory
 ```bash
 git clone https://github.com/simer11-jing/hindsight-memory.git
 cd hindsight-memory
+npm install
 cp -r templates/* ~/.openclaw/agents/main/
 mkdir -p ~/.openclaw/agents/main/memory
 ```
@@ -38,61 +45,145 @@ mkdir -p ~/.openclaw/agents/main/memory
 
 ## 🚀 Quick Start
 
-### 1. Initialize Memory Files
+### 1. Initialize
 
 ```bash
-# Create memory directory
 mkdir -p ~/.openclaw/agents/main/memory
-
-# Copy templates
 cp templates/MEMORY.md ~/.openclaw/agents/main/
 ```
 
-### 2. Write Memory
-
-```
-User: Remember that my email is example@email.com
-Assistant: ✅ Recorded to MEMORY.md (World Facts)
-```
-
-### 3. Retrieve Memory
-
-```
-User: What's my email?
-Assistant: According to MEMORY.md, your email is example@email.com
-```
-
-### 4. Check Capacity
+### 2. Basic Usage
 
 ```bash
-node scripts/memory-capacity-check.js
+# Capacity check
+npm run check
+
+# Keyword retrieval
+npm run tempr "user preferences"
+
+# Semantic search (requires indexing first)
+npm run semantic index
+npm run semantic "your query"
+```
+
+### 3. Configure Vector Search
+
+```bash
+# View current config
+npm run semantic
+
+# Enable local vector search
+npm run semantic -- config enable-local
+
+# Enable cloud vector search
+export OPENAI_API_KEY=your-key
+npm run semantic -- config enable-cloud your-key
+
+# Set custom API (for domestic LLM providers)
+npm run semantic -- config set-url https://open.bigmodel.cn/api/paas/v4
+npm run semantic -- config set-key your-key
 ```
 
 ---
 
-## 📚 Memory Architecture
-
-### Four Layers
+## 📚 Five-Layer Memory Architecture
 
 ```
 ┌─────────────────────────────────────┐
-│     Mental Models (Refined Wisdom)  │  ← Highest Priority
-│   Crystallized answers to FAQs      │
+│   💫 Ephemeral (Working Memory)     │  ← Session-level, memory cached
 ├─────────────────────────────────────┤
-│  Observations (Detected Patterns)   │
-│   Insights extracted from facts     │
+│      🎭 Experiences (Events)        │  ← Events, conversation logs
 ├─────────────────────────────────────┤
-│      World Facts (Objective Facts)  │
-│   External information received     │
+│   👁️ Observations (Patterns)        │  ← Insights, patterns
 ├─────────────────────────────────────┤
-│     Experiences (My Actions)        │  ← Lowest Priority
-│   What I did and learned            │
+│      🌍 World Facts (Knowledge)     │  ← Knowledge, config
+├─────────────────────────────────────┤
+│   🧠 Mental Models (Wisdom)         │  ← Core principles, best practices
 └─────────────────────────────────────┘
 ```
 
 ### Retrieval Priority
 
-**Mental Models → Observations → World Facts → Experiences**
+**Mental Models → Observations → World Facts → Experiences → Ephemeral**
+
+---
+
+## 🔧 Tool Scripts
+
+### Capacity Check
+
+```bash
+npm run check
+# or
+node scripts/memory-capacity-check.js
+```
+
+### TEMPR Retrieval (Keyword + Multi-dimensional)
+
+```bash
+npm run tempr "query"
+npm run tempr "config" --layer mentalModels
+npm run tempr "2026" --temporal
+```
+
+### Semantic Vector Search
+
+```bash
+# View config
+npm run semantic
+
+# Build index (first time)
+npm run semantic index
+
+# Semantic search
+npm run semantic "your query"
+npm run semantic "query" --layer worldFacts --threshold 0.8
+```
+
+### Configuration Management
+
+```bash
+# List available models
+npm run semantic -- config models
+
+# Switch model
+npm run semantic -- config set-model Xenova/bge-small-zh-v1.5
+
+# Enable/Disable
+npm run semantic -- config disable
+```
+
+---
+
+## ☁️ Cloud Vector Models
+
+### Supported Models
+
+| Model | Dimensions | Provider |
+|-------|------------|----------|
+| text-embedding-3-small | 1536 | OpenAI |
+| text-embedding-3-large | 3072 | OpenAI |
+| text-embedding-ada-002 | 1536 | OpenAI |
+
+### Custom API (Domestic LLM Support)
+
+```bash
+# Zhipu GLM
+npm run semantic -- config set-url https://open.bigmodel.cn/api/paas/v4
+npm run semantic -- config set-key your-glm-key
+
+# Alibaba DashScope
+npm run semantic -- config set-url https://dashscope.aliyuncs.com/api/v1
+npm run semantic -- config set-key your-dashscope-key
+
+# SiliconFlow
+export SILICONFLOW_API_KEY=your-key
+npm run semantic -- config enable-siliconflow
+
+# OpenAI Compatible API
+npm run semantic -- config set-url https://your-api.com/v1
+npm run semantic -- config set-key your-key
+```
 
 ---
 
@@ -100,61 +191,66 @@ node scripts/memory-capacity-check.js
 
 ```
 ~/.openclaw/agents/main/
-├── MEMORY.md              # Long-term memory (≤200 lines / 25KB)
-├── memory/                # Daily logs
+├── MEMORY.md                    # Long-term memory (≤200 lines / 25KB)
+├── memory/                      # Daily logs
 │   ├── 2026-04-06.md
-│   └── reflections/       # Reflection records
-├── AGENTS.md              # Workspace rules
-├── SOUL.md                # Identity definition
-└── USER.md                # User information
+│   └── reflections/             # Reflection records
+├── .memory-index.json           # Vector index
+├── memory-config.json           # Configuration file
+├── AGENTS.md                    # Workspace rules
+├── SOUL.md                      # Identity definition
+└── USER.md                      # User information
 ```
 
 ---
 
-## 🔧 Tool Scripts
+## 📦 Project Structure
 
-### memory-capacity-check.js
-
-Check MEMORY.md capacity.
-
-```bash
-node scripts/memory-capacity-check.js [FILE_PATH]
 ```
-
-Example output:
-```
-📊 MEMORY.md Statistics
-──────────────────────────────────────────────────
-Lines: 156 / 200 (78%)
-Size: 18.5KB / 25KB (74%)
-Status: ✅ Normal
+hindsight-memory/
+├── lib/                         # Core library
+│   ├── memory-entry.js          # Data model
+│   ├── memory-manager.js        # Main entry
+│   ├── config.js                # Configuration
+│   ├── retrieval/               # Retrieval module
+│   │   ├── keyword-search.js    # Keyword search
+│   │   └── semantic-search.js   # Vector search
+│   └── storage/                 # Storage module
+├── scripts/                     # CLI tools
+│   ├── memory-capacity-check.js
+│   ├── memory-tempr.js
+│   └── memory-semantic.js
+├── templates/                   # Templates
+├── ARCHITECTURE.md              # Architecture doc
+├── SKILL.md                     # OpenClaw skill
+└── README.md
 ```
 
 ---
 
-## 📝 Best Practices
+## ⚙️ Configuration Details
 
-### ✅ What to Record
+### Config File Location
 
-- ✅ Important decisions and reasons
-- ✅ User preferences and habits
-- ✅ Project key information
-- ✅ Lessons learned
-- ✅ System configuration (sanitized)
+`~/.openclaw/agents/main/memory-config.json`
 
-### ❌ What NOT to Record
+### Configuration Options
 
-- ❌ Temporary information
-- ❌ Sensitive data (plaintext passwords)
-- ❌ Duplicate content
-- ❌ Useless details
-
-### 🔄 Periodic Maintenance
-
-- Review MEMORY.md weekly
-- Clean up outdated information
-- Consolidate duplicate content
-- Promote important observations
+```json
+{
+  "vector": {
+    "enabled": false,
+    "type": "local",          // "local" or "cloud"
+    "model": "Xenova/all-MiniLM-L6-v2",
+    "dimensions": 384,
+    "device": "cpu",
+    "threshold": 0.7,
+    "cloudBaseURL": "",       // Custom API URL
+    "cloudApiKey": "",        // API Key
+    "cloudModel": ""          // Cloud model name
+  }
+}
+```
 
 ---
 
@@ -162,17 +258,10 @@ Status: ✅ Normal
 
 Issues and Pull Requests are welcome!
 
-### Development
-
 ```bash
 git clone https://github.com/simer11-jing/hindsight-memory.git
 cd hindsight-memory
 npm install
-```
-
-### Testing
-
-```bash
 npm test
 ```
 
@@ -186,9 +275,16 @@ npm test
 
 ## 🙏 Acknowledgments
 
-- [Hindsight](https://arxiv.org) - Inspiration for four-layer memory architecture
+- [Hindsight](https://arxiv.org) - Multi-layer memory architecture inspiration
 - [Claude Code](https://www.anthropic.com) - Multi-layer memory design reference
 - [OpenClaw](https://openclaw.ai) - AI agent platform
+- [Transformers.js](https://xenova.github.io/transformers.js) - Local vector models
+
+---
+
+## 📝 Changelog
+
+See [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
