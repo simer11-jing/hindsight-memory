@@ -164,6 +164,8 @@ node scripts/memory-semantic.js 配置 set-key your-key
 | `memory-capacity-check.js` | 容量检查 |
 | `memory-tempr.js` | 关键词检索 |
 | `memory-semantic.js` | 向量语义搜索 |
+| `memory-consolidate.js` | 自动规整（超限压缩到SQLite） |
+| `memory-archive.js` | 日志归档（90天+自动清理） |
 
 ---
 

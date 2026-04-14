@@ -7,6 +7,34 @@
 
 ---
 
+## [2.1.0] - 2026-04-15
+
+### 新增
+
+- ✨ **自动规整脚本 (memory-consolidate.js)**
+  - 自动检测 MEMORY.md 超限（>200行或>25KB）
+  - Experiences/Observations 自动归档到 SQLite 数据库
+  - 保留 Mental Models + World Facts 在主文件
+  - 每日 02:00 定时执行
+
+- ✨ **日志归档脚本 (memory-archive.js)**
+  - 90天前日志自动归档到 archive/ 目录
+  - 清理重复版本（如 2026-04-14-1714.md）
+  - 生成归档索引
+  - 每日 03:00 定时执行
+
+- ✨ **SQLite 存储支持**
+  - Experiences 和 Observations 存入 SQLite
+  - 支持向量语义检索
+  - 保留文件备份和归档
+
+### 改进
+
+- 📝 SKILL.md 更新，新增脚本文档
+- 🔧 memory-config.json 支持 newapi 向量模型
+
+---
+
 ## [2.0.0] - 2026-04-11
 
 ### 新增
