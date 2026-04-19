@@ -1,10 +1,10 @@
 # 🧠 Hindsight Memory System
 
-> 基于 5 层架构的 AI 智能体记忆系统，支持本地/云端向量检索
+> 基于 5 层架构的 AI 智能体记忆系统，支持本地/云端向量检索 + **跨 Agent 记忆共享**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-Compatible-blue.svg)](https://openclaw.ai)
-[![Version](https://img.shields.io/badge/version-2.0.0-green.svg)](https://github.com/simer11-jing/hindsight-memory)
+[![Version](https://img.shields.io/badge/version-2.1.0-green.svg)](https://github.com/simer11-jing/hindsight-memory)
 
 ---
 
@@ -17,72 +17,102 @@
 - 📏 **容量管理** - 自动警告，防止溢出
 - ⚙️ **灵活配置** - 多模型可选，本地/云端切换
 - 🔄 **定期审查** - 自动整理，保持精炼
+- 🤝 **跨 Agent 共享** - 多智能体团队记忆层，Kairos 推理结果自动注入
 
 ---
 
 ## 📦 安装
 
-### 一键安装（推荐）
-
-```bash
-git clone https://github.com/simer11-jing/hindsight-memory.git
-cd hindsight-memory
-chmod +x setup.sh
-./setup.sh
-```
-
-### 手动安装
-
 ```bash
 git clone https://github.com/simer11-jing/hindsight-memory.git
 cd hindsight-memory
 npm install
-cp -r templates/* ~/.openclaw/agents/main/
-mkdir -p ~/.openclaw/agents/main/memory
 ```
 
 ---
 
 ## 🚀 快速开始
 
-### 1. 初始化
-
-```bash
-mkdir -p ~/.openclaw/agents/main/memory
-cp templates/MEMORY.md ~/.openclaw/agents/main/
-```
-
-### 2. 基本使用
+### 单 Agent 记忆
 
 ```bash
 # 容量检查
-npm run check
+node scripts/memory-capacity-check.js
 
 # 关键词检索
-npm run tempr "用户偏好"
+node scripts/memory-tempr.js "用户偏好"
 
-# 语义搜索（需要先建立索引）
-npm run semantic 索引
-npm run semantic "你的查询"
+# 语义搜索
+node scripts/memory-semantic.js 索引
+node scripts/memory-semantic.js "你的查询"
 ```
 
-### 3. 配置向量检索
+### 团队记忆（跨 Agent 共享）
 
 ```bash
-# 查看当前配置
-npm run semantic
+# 初始化共享目录
+mkdir -p ~/.openclaw/agents/shared
 
-# 启用本地向量检索
-npm run semantic -- config enable-local
+# 写入共享记忆
+node scripts/team/memory-team.js write observations "英超保级队主场强势"
 
-# 启用云端向量检索
-export OPENAI_API_KEY=your-key
-npm run semantic -- config enable-cloud your-key
+# 查询团队记忆
+node scripts/team/memory-team.js query "保级"
 
-# 设置自定义 API（支持国内大模型）
-npm run semantic -- config set-url https://open.bigmodel.cn/api/paas/v4
-npm run semantic -- config set-key your-key
+# 查看团队统计
+node scripts/team/memory-team.js stats
+
+# 查看历史记录
+node scripts/team/memory-team.js history observations --limit=10
+
+# 对比两天差异
+node scripts/team/memory-team.js diff observations 2026-04-18 2026-04-19
 ```
+
+---
+
+## 🤝 跨 Agent 记忆共享
+
+多个 Agent（main / analyst / intelligence / reviewer）共享同一个记忆层，Kairos 推理结果自动注入。
+
+### 架构
+
+```
+main ──┐
+analyst ──┼──→ 共享记忆层 (shared/) ◄── Kairos 推理结论
+intelligence ──┤ mentalModels / worldFacts / observations / experiences
+reviewer ────┘
+```
+
+### AgentContext API
+
+```javascript
+const { AgentContext } = require('./lib/multi-agent/index.js');
+
+// 创建上下文（agentId 标识来源）
+const ctx = new AgentContext('analyst');
+
+// 写入共享记忆
+await ctx.writeShared('mentalModels', '战意优先原则', {
+  confidence: 0.95,
+  tags: ['竞彩', '核心原则']
+});
+
+// 读取所有共享记忆
+const all = await ctx.readAllShared();
+// → { mentalModels: [...], worldFacts: [...], observations: [...], experiences: [...] }
+
+// 按关键词查询
+const results = await ctx.queryTeam('保级', ['mentalModels', 'observations']);
+
+// 团队统计
+const stats = await ctx.teamStats();
+// → { totalEntries: 42, byLayer: {...}, byAgent: { analyst: 15, main: 27 } }
+```
+
+### Kairos 集成
+
+Kairos 推理结果自动写入共享记忆层（见 `kairos-learner.py` 中的 `write_to_hindsight_memory()`）。
 
 ---
 
@@ -102,83 +132,64 @@ npm run semantic -- config set-key your-key
 └─────────────────────────────────────┘
 ```
 
-### 检索优先级
+### 共享层 vs 私有层
 
-**Mental Models → Observations → World Facts → Experiences → Ephemeral**
+| 层级 | 共享策略 | 说明 |
+|------|---------|------|
+| mentalModels | ✅ 强制共享 | 核心原则，所有 Agent 可见 |
+| worldFacts | ✅ 强制共享 | 客观事实，知识共建 |
+| observations | 🔄 按需共享 | 洞察，可标记来源 |
+| experiences | 🔄 按需共享 | 经历，可追溯 |
+| ephemeral | ❌ 不共享 | 短期会话缓存 |
 
 ---
 
-## 🔧 工具脚本
+## 🔧 CLI 工具
 
-### 容量检查
+### 团队记忆 CLI
 
 ```bash
-npm run check
-# 或
+# 读取某层记忆
+node scripts/team/memory-team.js read observations
+
+# 写入记忆
+node scripts/team/memory-team.js write observations "新发现的内容"
+
+# 搜索
+node scripts/team/memory-team.js query "关键词"
+
+# 统计
+node scripts/team/memory-team.js stats
+
+# 历史记录
+node scripts/team/memory-team.js history observations --limit=10
+
+# 差异对比
+node scripts/team/memory-team.js diff observations 2026-04-18 2026-04-19
+```
+
+### 单 Agent CLI
+
+```bash
 node scripts/memory-capacity-check.js
-```
-
-### TEMPR 检索（关键词 + 多维）
-
-```bash
-npm run tempr "查询内容"
-npm run tempr "配置" --layer mentalModels
-npm run tempr "2026" --temporal
-```
-
-### 语义向量搜索
-
-```bash
-# 查看配置
-npm run semantic
-
-# 首次建立索引
-npm run semantic 索引
-
-# 语义搜索
-npm run semantic "查询内容"
-npm run semantic "查询" --layer worldFacts --threshold 0.8
-```
-
-### 配置管理
-
-```bash
-# 列出可用模型
-npm run semantic -- config models
-
-# 切换模型
-npm run semantic -- config set-model Xenova/bge-small-zh-v1.5
-
-# 启用/禁用
-npm run semantic -- config disable
+node scripts/memory-tempr.js "查询"
+node scripts/memory-semantic.js "查询"
 ```
 
 ---
 
-## ☁️ 云端向量模型
-
-### 支持的模型
-
-| 模型 | 维度 | 提供商 |
-|------|------|--------|
-| text-embedding-3-small | 1536 | OpenAI |
-| text-embedding-3-large | 3072 | OpenAI |
-| text-embedding-ada-002 | 1536 | OpenAI |
-
-### 自定义 API（支持国内大模型）
+## ☁️ 向量检索配置
 
 ```bash
-# 智谱 GLM
+# 启用本地向量
+npm run semantic -- config enable-local
+
+# 启用云端向量
+export OPENAI_API_KEY=your-key
+npm run semantic -- config enable-cloud your-key
+
+# 自定义 API（支持国内大模型）
 npm run semantic -- config set-url https://open.bigmodel.cn/api/paas/v4
-npm run semantic -- config set-key your-glm-key
-
-# 阿里 DashScope
-npm run semantic -- config set-url https://dashscope.aliyuncs.com/api/v1
-npm run semantic -- config set-key your-dashscope-key
-
-# OpenAI 兼容接口
-npm run semantic -- config set-url https://your-api.com/v1
-npm run semantic -- config set-key your-key
 ```
 
 ---
@@ -186,101 +197,78 @@ npm run semantic -- config set-key your-key
 ## 📁 文件结构
 
 ```
-~/.openclaw/agents/main/
-├── MEMORY.md                    # 长期记忆（≤200行/25KB）
-├── memory/                      # 每日日志
-│   ├── 2026-04-06.md
-│   └── reflections/             # 反思记录
-├── .memory-index.json           # 向量索引
-├── memory-config.json           # 配置文件
-├── AGENTS.md                    # 工作空间规则
-├── SOUL.md                      # 身份定义
-└── USER.md                      # 用户信息
-```
-
----
-
-## 📦 项目结构
-
-```
 hindsight-memory/
-├── lib/                         # 核心库
-│   ├── memory-entry.js          # 数据模型
-│   ├── memory-manager.js        # 主入口
-│   ├── config.js                # 配置管理
-│   ├── retrieval/               # 检索模块
-│   │   ├── keyword-search.js    # 关键词搜索
-│   │   └── semantic-search.js   # 向量搜索
-│   └── storage/                 # 存储模块
-├── scripts/                     # 命令行工具
+├── lib/
+│   ├── memory-entry.js              # 数据模型
+│   ├── memory-manager.js           # 主入口
+│   ├── config.js                   # 配置管理
+│   ├── multi-agent/                # 跨 Agent 共享模块 ⭐
+│   │   ├── index.js                # 导出入口
+│   │   └── agent-context.js        # AgentContext 核心类
+│   ├── retrieval/                  # 检索模块
+│   │   ├── keyword-search.js
+│   │   └── semantic-search.js
+│   └── storage/                    # 存储模块
+├── scripts/
 │   ├── memory-capacity-check.js
 │   ├── memory-tempr.js
-│   └── memory-semantic.js
-├── templates/                   # 模板
-├── ARCHITECTURE.md              # 架构文档
-├── SKILL.md                     # OpenClaw 技能
-└── README.md
+│   ├── memory-semantic.js
+│   └── team/                       # 团队协作 CLI ⭐
+│       └── memory-team.js
+├── templates/
+├── ARCHITECTURE.md
+├── SKILL.md
+├── README.md
+└── package.json
 ```
 
 ---
 
-## ⚙️ 配置详解
+## 🤝 接入新 Agent
 
-### 配置文件位置
+在 Agent 的 `AGENTS.md` 末尾添加：
 
-`~/.openclaw/agents/main/memory-config.json`
+```markdown
+## 团队共享记忆
 
-### 配置项说明
+启动时可通过 AgentContext 读取团队共享记忆：
+
+const {AgentContext} = require('/path/to/hindsight-memory/lib/multi-agent/index.js');
+const ctx = new AgentContext('your-agent-id');
+
+const all = await ctx.readAllShared();
+const results = await ctx.queryTeam('关键词', ['mentalModels', 'observations']);
+```
+
+---
+
+## ⚙️ 配置
+
+配置文件：`~/.openclaw/agents/main/memory-config.json`
 
 ```json
 {
   "vector": {
     "enabled": false,
-    "type": "local",          // "local" 或 "cloud"
+    "type": "local",
     "model": "Xenova/all-MiniLM-L6-v2",
     "dimensions": 384,
-    "device": "cpu",
-    "threshold": 0.7,
-    "cloudBaseURL": "",       // 自定义 API 地址
-    "cloudApiKey": "",        // API Key
-    "cloudModel": ""          // 云端模型名
+    "threshold": 0.7
   }
 }
 ```
 
 ---
 
-## 🤝 贡献
+## 📝 更新日志
 
-欢迎提交 Issue 和 Pull Request！
-
-```bash
-git clone https://github.com/simer11-jing/hindsight-memory.git
-cd hindsight-memory
-npm install
-npm test
-```
+See [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
 ## 📄 许可证
 
 [MIT License](LICENSE)
-
----
-
-## 🙏 致谢
-
-- [Hindsight](https://arxiv.org) - 多层记忆架构灵感
-- [Claude Code](https://www.anthropic.com) - 多层记忆设计参考
-- [OpenClaw](https://openclaw.ai) - AI 智能体平台
-- [Transformers.js](https://xenova.github.io/transformers.js) - 本地向量模型
-
----
-
-## 📝 更新日志
-
-See [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
