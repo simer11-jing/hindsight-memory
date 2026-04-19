@@ -4,189 +4,84 @@
 
 ---
 
-## 🎯 适用场景
+## 🤝 跨 Agent 记忆共享（v2.1 新增）
 
-- AI 智能体需要长期记忆
-- 需要语义向量搜索
-- 需要多源记忆检索
-- 需要本地/云端 embedding 模型
+> 多 Agent 协作场景下，团队共享记忆层，所有 Agent 都能读取和贡献
 
----
-
-## 📚 记忆架构
-
-### 五层记忆结构
-
-| 层级 | 类型 | 说明 | 示例 |
-|------|------|------|------|
-| **Ephemeral** | 短期工作记忆 | 会话级缓存 | 当前任务状态 |
-| **Experiences** | 代理自身经历 | 我的行为和互动 | "完成了系统升级" |
-| **Observations** | 自动整合的知识 | 从事实中提取的模式 | "用户喜欢尝试新工具" |
-| **World Facts** | 客观世界事实 | 接收到的外部信息 | "Gateway 端口 28789" |
-| **Mental Models** | 用户管理的摘要 | 常见问题的精炼答案 | "用户偏好简洁回复" |
-
-### 检索优先级
+### 架构
 
 ```
-Mental Models → Observations → World Facts → Experiences → Ephemeral
+~/.openclaw/agents/
+├── shared/                    # 团队共享记忆（所有 Agent 可见）
+│   ├── mentalModels.md
+│   ├── worldFacts.md
+│   ├── observations.md
+│   ├── experiences.md
+│   └── .index.json
+├── main/                      # Agent A
+│   ├── MEMORY.md
+│   └── memory/
+│       ├── mentalModels.md    # 私有（仅 main 可见）
+│       └── ...
+├── analyst/                   # Agent B
+│   ├── MEMORY.md
+│   └── memory/
+└── intelligence/              # Agent C
+    └── ...
+
+共享层：mentalModels / worldFacts（高价值、长期不变）
+私有层：observations / experiences（个人经验、短期观察）
 ```
 
----
-
-## ✨ 特性
-
-- 🏗️ **5 层架构** - Ephemeral 到 Mental Models
-- 🔍 **向量搜索** - 本地/云端 embedding 模型
-- ☁️ **云端支持** - 硅基流动、OpenAI、自定义 API
-- 💾 **持久化** - 文件级记忆，重启不丢失
-- 📏 **容量管理** - 自动警告，防止溢出
-
----
-
-## 📁 文件结构
-
-```
-~/.openclaw/agents/main/
-├── MEMORY.md                    # 长期记忆（≤200行/25KB）
-├── memory/                      # 每日日志
-│   ├── 2026-04-06.md
-│   └── reflections/             # 反思记录
-├── .memory-index.json           # 向量索引
-├── memory-config.json           # 配置文件
-├── AGENTS.md                    # 工作空间规则
-├── SOUL.md                      # 身份定义
-└── USER.md                      # 用户信息
-```
-
----
-
-## 🚀 使用方法
-
-### 初始化
+### CLI 用法
 
 ```bash
-mkdir -p ~/.openclaw/agents/main/memory
-cp templates/MEMORY.md ~/.openclaw/agents/main/
+# 团队统计
+node memory-team.js stats
+
+# 读取共享记忆
+node memory-team.js read --layer mentalModels
+
+# 写入共享记忆（analyst Agent 贡献）
+OPENCLAW_AGENT_ID=analyst node memory-team.js write "英超保级队主场强势" --layer observations --tags 竞彩
+
+# 查询团队记忆
+node memory-team.js query "用户偏好什么模型"
+
+# 列出所有 Agent
+node memory-team.js agents
 ```
 
-### 向量搜索
+### 核心类
 
-```bash
-# 配置硅基流动
-export SILICONFLOW_API_KEY=your-key
-node scripts/memory-semantic.js 配置 enable-siliconflow
+```javascript
+const { AgentContext } = require('./lib/multi-agent');
 
-# 建立索引
-node scripts/memory-semantic.js 索引
+// 当前 Agent
+const ctx = new AgentContext('main');
+await ctx.writeShared('observations', '发现赔率临场暴升 > 0.3 需警惕', { tags: ['竞彩'] });
+const results = await ctx.queryTeam('竞彩分析经验');
 
-# 语义搜索
-node scripts/memory-semantic.js "你的查询"
+// 团队统计
+const stats = await ctx.teamStats();
+// { agents: ['main', 'analyst'], totalContributions: 42, layers: {...} }
 ```
 
-### 关键词检索
+### 层级共享策略
 
-```bash
-node scripts/memory-tempr.js "查询"
+| 层级 | 共享策略 | 说明 |
+|------|---------|------|
+| mentalModels | 强制共享 | 核心原则、最佳实践 |
+| worldFacts | 强制共享 | 系统配置、用户信息 |
+| observations | 按需共享 | 模式洞察，可贡献给团队 |
+| experiences | 按需共享 | 个人经历，选择性共享 |
+| ephemeral | 不共享 | 会话级缓存，无需共享 |
+
+### 与 Kairos 集成
+
+```javascript
+// Kairos 生成画像 -> 写入团队共享层
+const kairosCtx = new AgentContext('main');
+const profile = await kairosCtx.queryTeam('用户偏好');
+// -> 团队成员都能查询到 main Agent 贡献的用户画像
 ```
-
-### 容量检查
-
-```bash
-node scripts/memory-capacity-check.js
-```
-
----
-
-## ☁️ 云端模型配置
-
-### 硅基流动（推荐）
-
-```bash
-export SILICONFLOW_API_KEY=your-key
-node scripts/memory-semantic.js 配置 enable-siliconflow
-```
-
-### OpenAI
-
-```bash
-export OPENAI_API_KEY=your-key
-node scripts/memory-semantic.js 配置 enable-cloud
-```
-
-### 自定义 API
-
-```bash
-node scripts/memory-semantic.js 配置 set-url https://your-api.com/v1
-node scripts/memory-semantic.js 配置 set-key your-key
-```
-
----
-
-## 📏 配置详解
-
-```json
-{
-  "vector": {
-    "enabled": true,
-    "type": "cloud",
-    "cloudProvider": "siliconflow",
-    "cloudBaseURL": "https://api.siliconflow.cn/v1",
-    "cloudModel": "Qwen/Qwen3-Embedding-8B",
-    "dimensions": 4096,
-    "threshold": 0.7
-  }
-}
-```
-
----
-
-## 📝 最佳实践
-
-### ✅ 应该记录的
-
-- 重要决策和原因
-- 用户偏好和习惯
-- 项目关键信息
-- 学习到的教训
-
-### ❌ 不应该记录的
-
-- 临时性信息
-- 敏感数据（明文密码）
-- 重复内容
-
----
-
-## 🛠️ 工具脚本
-
-| 脚本 | 用途 |
-|------|------|
-| `memory-capacity-check.js` | 容量检查 |
-| `memory-tempr.js` | 关键词检索 |
-| `memory-semantic.js` | 向量语义搜索 |
-| `memory-consolidate.js` | 自动规整（超限压缩到SQLite） |
-| `memory-archive.js` | 日志归档（90天+自动清理） |
-
----
-
-## 📖 参考资料
-
-- [Hindsight Memory](https://github.com/simer11-jing/hindsight-memory)
-- [Transformers.js](https://xenova.github.io/transformers.js)
-- [硅基流动 API](https://docs.siliconflow.cn)
-
----
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 PR！
-
----
-
-## 📄 许可证
-
-MIT License
-
----
-
-_此 Skill 由小爪（OpenClaw Agent）创建并维护_ 🐾
