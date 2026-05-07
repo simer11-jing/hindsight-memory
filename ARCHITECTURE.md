@@ -472,3 +472,42 @@ npm run export-json
 
 **文档版本**: 2.0.0  
 **最后更新**: 2026-04-11
+---
+
+## 6. MemOS-Style 增强功能 (v2.1.0+)
+
+### 6.1 STM → LTM 分层压缩
+
+> 模拟 MemOS 的多层记忆架构，实现短期到长期的自动归档。
+
+| 组件 | 文件 | 说明 |
+|------|------|------|
+| **STM Buffer** | `memory/stm-current.md` | 实时会话缓冲，记录关键决策、偏好变化 |
+| **LTM Archive** | `memory/YYYY-MM-DD.md` | 每日归档，压缩后的长期记忆 |
+| **KG Index** | `MEMORY.md` 顶部索引区 | 实体关系三元组，快速检索 |
+| **压缩器** | `scripts/stm-ltm-compress.sh` | 每日 23:50 自动执行 |
+
+**KG-Lite 索引格式**:
+```markdown
+- [Entity] -> [Relation] -> [Value/Entity]
+- [NAS] -> IP -> 192.168.50.20
+- [NAS] -> SMB_Path -> //192.168.50.20/智能体记忆/总控爪
+```
+
+### 6.2 SMB 自动备份
+
+| 项目 | 配置 |
+|------|------|
+| **脚本** | `scripts/backup-memory-smb.sh` |
+| **目标** | `//192.168.50.20/智能体记忆/总控爪` |
+| **频率** | 每日 23:55 |
+| **内容** | MEMORY.md + memory/*.md |
+
+### 6.3 三层记忆架构
+
+```
+会话层 (STM)  ←→  长期层 (LTM)  ←→  知识层 (KG)
+     ↓                ↓               ↓
+stm-current.md    YYYY-MM-DD.md    MEMORY.md Index
+```
+
