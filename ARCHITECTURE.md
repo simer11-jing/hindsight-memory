@@ -1,513 +1,289 @@
 # Hindsight-Memory 架构文档
 
-## 版本：2.0.0
+## 版本：2.1.0
 
 ---
 
 ## 1. 架构概览
 
-### 1.1 5 层记忆架构
+### 1.1 混合架构：Hindsight + MemOS
 
-| 层级 | 名称 | 说明 | 存储方式 |
-|------|------|------|----------|
-| L1 | **Ephemeral** | 短期工作记忆，当前会话上下文 | 内存/会话级 |
-| L2 | **Experiences** | 具体经历、事件、对话 | 文件 + SQLite |
-| L3 | **Observations** | 观察到的模式、规律 | 文件 + SQLite |
-| L4 | **World Facts** | 客观事实、知识 | 文件 |
-| L5 | **Mental Models** | 精炼智慧、核心信念 | 文件（Git版本控制） |
-
-### 1.2 架构图
+Hindsight-Memory 结合了 Hindsight 的五层记忆架构和 MemOS 的分层压缩机制：
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    User Query                        │
-└─────────────────────┬───────────────────────────────┘
-                      │
-                      ▼
-┌─────────────────────────────────────────────────────┐
-│                Memory Manager                        │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐ │
-│  │   Write     │  │   Search    │  │  Lifecycle  │ │
-│  │   Layer     │  │   Layer     │  │   Manager   │ │
-│  └─────────────┘  └─────────────┘  └─────────────┘ │
-└─────────────────────┬───────────────────────────────┘
-                      │
-        ┌─────────────┼─────────────┐
-        ▼             ▼             ▼
-┌───────────┐  ┌───────────┐  ┌───────────┐
-│   File    │  │  SQLite   │  │  Vector   │
-│   Store   │  │   Store   │  │   Store   │
-│  (JSON)   │  │ (可选)    │  │ (可选)    │
-└───────────┘  └───────────┘  └───────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                   Hindsight 5 层架构                       │
+├─────────────────────────────────────────────────────────────┤
+│  L1 Ephemeral     │ 短期工作记忆，会话级                    │
+│  L2 Experiences    │ 具体经历、事件、对话                    │
+│  L3 Observations   │ 观察到的模式、规律                      │
+│  L4 World Facts    │ 客观事实、知识                          │
+│  L5 Mental Models  │ 精炼智慧、核心信念                      │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                   MemOS 分层增强                            │
+├─────────────────────────────────────────────────────────────┤
+│  STM (短期) → LTM (长期) → KG (知识图谱)                    │
+│  实时缓冲     每日归档     实体关系三元组                     │
+└─────────────────────────────────────────────────────────────┘
 ```
 
----
+### 1.2 数据流
 
-## 2. 数据模型
-
-### 2.1 MemoryEntry
-
-```typescript
-interface MemoryEntry {
-  id: string;                    // UUID
-  layer: Layer;                  // 所属层级
-  content: string;               // 记忆内容
-  embedding?: number[];          // 向量嵌入（可选）
-  metadata: MetaData;            // 元数据
-  importance: number;            // 重要性 (0-1)
-  createdAt: Date;               // 创建时间
-  accessedAt: Date;              // 最后访问时间
-  accessCount: number;           // 访问次数
-}
-
-type Layer = 'ephemeral' | 'experiences' | 'observations' | 'worldFacts' | 'mentalModels';
-
-interface MetaData {
-  source: string;                // 来源 (conversation/file/web)
-  tags: string[];                // 标签
-  entities: string[];            // 提及的实体
-  sessionId?: string;            // 关联会话ID
-  parentId?: string;             // 父记忆ID（用于关联）
-}
 ```
-
-### 2.2 文件格式
-
-**MEMORY.md (L4-L5)**:
-```markdown
-# MEMORY.md - 长期记忆
-
----
-
-## 🧠 Mental Models（精炼智慧）
-
-- 团队沟通最佳实践
-- 项目决策原则
-
----
-
-## 🌍 World Facts（客观事实）
-
-- 系统配置
-- 用户信息
-
----
-
-## 🎭 Experiences（我的经历）
-
-（可选，用于短期）
-
----
-
-## 👁️ Observations（观察到的模式）
-
-（可选）
-
----
-```
-
-**memory/YYYY-MM-DD.md (L2-L3)**:
-```markdown
-# 2026-04-11 工作日志
-
-## 👁️ Observations
-- 用户偏好简洁回复
-
-## 🎭 Experiences
-- 完成了 TEMPR 检索开发
+用户对话
+    ↓
+STM Buffer (memory/stm-current.md)
+    ↓ 每日 23:50 压缩
+LTM Archive (memory/YYYY-MM-DD.md)
+    ↓ KG 提取
+KG-Lite Index (MEMORY.md 顶部)
+    ↓
+语义/向量检索 ←→ 混合检索引擎
+    ↓
+记忆召回 → 回复 → 用户
 ```
 
 ---
 
-## 3. API 设计
+## 2. 核心组件
 
-### 3.1 MemoryManager
-
-```typescript
-class MemoryManager {
-  // 写入
-  async add(content: string, layer: Layer, options?: WriteOptions): Promise<MemoryEntry>
-  async addEphemeral(content: string, sessionId: string): Promise<MemoryEntry>
-  
-  // 读取
-  async get(id: string): Promise<MemoryEntry | null>
-  async getByLayer(layer: Layer): Promise<MemoryEntry[]>
-  
-  // 检索
-  async search(query: string, options?: SearchOptions): Promise<SearchResult[]>
-  async searchByLayer(layer: Layer, query: string): Promise<SearchResult[]>
-  
-  // 生命周期
-  async consolidate(): Promise<void>        // 压缩/合并
-  async archive(days: number): Promise<void> // 归档旧数据
-  async forget(id: string): Promise<void>   // 删除
-  
-  // 管理
-  async getStats(): Promise<MemoryStats>
-  async export(format: 'json' | 'md'): Promise<string>
-  async backup(): Promise<string>
-}
-
-interface WriteOptions {
-  tags?: string[]
-  entities?: string[]
-  source?: string
-  importance?: number
-}
-
-interface SearchOptions {
-  layer?: Layer
-  limit?: number
-  useSemantic?: boolean  // 是否使用向量搜索
-  temporal?: DateRange
-}
-
-interface MemoryStats {
-  total: number
-  byLayer: Record<Layer, number>
-  sizeBytes: number
-  lastModified: Date
-}
-```
-
-### 3.2 存储接口
-
-```typescript
-interface StorageAdapter {
-  // 写入
-  async save(entry: MemoryEntry): Promise<void>
-  
-  // 读取
-  async get(id: string): Promise<MemoryEntry | null>
-  async getByLayer(layer: Layer): Promise<MemoryEntry[]>
-  async getAll(): Promise<MemoryEntry[]>
-  
-  // 删除
-  async delete(id: string): Promise<void>
-  
-  // 查询
-  async query(filter: QueryFilter): Promise<MemoryEntry[]>
-}
-
-// 实现
-class FileStorage implements StorageAdapter { /* ... */ }
-class SQLiteStorage implements StorageAdapter { /* ... */ }
-class VectorStorage implements StorageAdapter { /* 用于语义搜索 */ }
-```
-
-### 3.3 检索接口
-
-```typescript
-interface RetrievalAdapter {
-  // 搜索
-  async search(query: string, options: SearchOptions): Promise<SearchResult[]>
-  
-  // 索引
-  async index(entries: MemoryEntry[]): Promise<void>
-  async reindex(): Promise<void>
-}
-
-// 实现
-class KeywordSearch implements RetrievalAdapter { /* grep/Boyer-Moore */ }
-class SemanticSearch implements RetrievalAdapter { /* 向量相似度 */ }
-class HybridSearch implements RetrievalAdapter { /* RRF 融合 */ }
-```
-
----
-
-## 4. 检索流程
-
-### 4.1 混合检索
-
-```
-User Query
-    │
-    ▼
-┌─────────────────┐
-│  Query分析       │
-│  - 提取关键词    │
-│  - 生成向量      │
-└─────────────────┘
-    │
-    ├──────────────────┐
-    ▼                  ▼
-┌─────────┐      ┌──────────┐
-│关键词搜索│      │ 向量搜索 │
-│ (BM25)  │      │ (cosine) │
-└────┬────┘      └────┬─────┘
-     │                │
-     └───────┬────────┘
-             ▼
-    ┌─────────────────┐
-    │  RRF 融合结果    │
-    │  (Reciprocal    │
-    │   Rank Fusion)  │
-    └────────┬────────┘
-             │
-             ▼
-    ┌─────────────────┐
-    │   返回 Top-K    │
-    └─────────────────┘
-```
-
-### 4.2 RRF 算法
-
-```javascript
-function rrfFusion(resultsList, k = 60) {
-  const scores = {};
-  
-  for (const results of resultsList) {
-    for (let i = 0; i < results.length; i++) {
-      const id = results[i].id;
-      const score = 1 / (k + i + 1);
-      scores[id] = (scores[id] || 0) + score;
-    }
-  }
-  
-  return Object.entries(scores)
-    .sort((a, b) => b[1] - a[1])
-    .map(([id, score]) => ({ id, score }));
-}
-```
-
----
-
-## 5. 生命周期管理
-
-### 5.1 TTL 策略
-
-| 层级 | TTL | 策略 |
-|------|-----|------|
-| Ephemeral | 会话结束 | 内存自动清除 |
-| Experiences | 90天未访问 | 降级为 Observations |
-| Observations | 180天未访问 | 压缩为 Mental Model |
-| World Facts | 长期 | 归档不删除 |
-| Mental Models | 永久 | Git 版本控制 |
-
-### 5.2 自动压缩
-
-```
-当 Experiences 积累 > 100 条时:
-  ↓
-提取共同模式
-  ↓
-生成新 Observation
-  ↓
-标记原 Experiences 为"已压缩"
-  ↓
-保留引用关系
-```
-
-### 5.3 归档策略
-
-```
-数据 > 1 年未访问:
-  ↓
-打包为 JSONL
-  ↓
-移至 cold/ 目录
-  ↓
-更新索引（指向归档文件）
-```
-
----
-
-## 6. 配置
-
-### 6.1 配置文件
-
-```json
-{
-  "memory": {
-    "maxLinesPerLayer": 200,
-    "maxSizeKB": 25,
-    "autoCompression": true,
-    "compressionThreshold": 100
-  },
-  "storage": {
-    "primary": "file",
-    "enableSQLite": false,
-    "enableVector": false
-  },
-  "vector": {
-    "provider": "sqlite-vss",
-    "model": "all-MiniLM-L6-v2",
-    "dimensions": 384
-  },
-  "retrieval": {
-    "defaultLimit": 10,
-    "hybridRrfK": 60,
-    "semanticThreshold": 0.7
-  },
-  "lifecycle": {
-    "ephemeralTTL": "session",
-    "experiencesTTL": 90,
-    "archiveAfter": 365
-  }
-}
-```
-
----
-
-## 7. 向后兼容
-
-### 7.1 V1 → V2 迁移
-
-```bash
-# 1. 备份
-cp MEMORY.md MEMORY.md.v1.backup
-
-# 2. 转换格式
-node scripts/migrate-v1-to-v2.js
-
-# 3. 验证
-npm test
-```
-
-### 7.2 兼容模式
-
-- 保持 MEMORY.md 格式不变
-- 新增 metadata 通过 YAML front-matter
-- 旧脚本继续可用
-
----
-
-## 8. 性能优化
-
-### 8.1 索引策略
-
-| 数据类型 | 索引方式 |
-|----------|----------|
-| 文件内容 | 反向索引（行号→内容） |
-| 层级 | 按文件区块 |
-| 时间 | 文件名日期 |
-| 向量 | HNSW 索引 |
-
-### 8.2 缓存策略
-
-- L1 (Ephemeral): 完全在内存
-- L2-L3: LRU 缓存 最近 100 条
-- L4-L5: 内存映射文件
-
----
-
-## 9. 目录结构
-
-```
-hindsight-memory/
-├── lib/
-│   ├── memory-entry.js      # 数据模型
-│   ├── memory-manager.js    # 主入口
-│   ├── storage/
-│   │   ├── file-store.js    # 文件存储
-│   │   ├── sqlite-store.js  # SQLite 存储
-│   │   └── hybrid-store.js  # 混合存储
-│   ├── retrieval/
-│   │   ├── keyword-search.js
-│   │   ├── semantic-search.js
-│   │   └── hybrid-search.js
-│   └── lifecycle/
-│       ├── ttl-manager.js
-│       ├── compression.js
-│       └── archival.js
-├── scripts/
-│   ├── memory-check.js
-│   ├── memory-review.js
-│   ├── memory-tempr.js      # TEMPR 检索
-│   └── migrate-v1-to-v2.js  # 迁移脚本
-├── config/
-│   └── default.json
-├── templates/
-│   ├── MEMORY.md
-│   └── MEMORY_PERSONAL.md
-├── ARCHITECTURE.md
-└── package.json
-```
-
----
-
-## 10. 使用示例
-
-### 10.1 基本使用
+### 2.1 Memory Manager
 
 ```javascript
 const { MemoryManager } = require('./lib/memory-manager');
 
-const memory = new MemoryManager();
-
-// 添加记忆
-await memory.add(
-  '用户偏好简洁回复，不喜欢冗长',
-  'observations',
-  { tags: ['偏好', '沟通'], importance: 0.8 }
-);
-
-// 搜索
-const results = await memory.search('用户偏好');
-
-// 按层搜索
-const mental = await memory.searchByLayer('mentalModels', '原则');
+const mm = new MemoryManager({
+  basePath: '~/.openclaw/agents/main',
+  storage: 'hybrid',  // file | sqlite | hybrid
+});
 ```
 
-### 10.2 命令行
+**职责**：
+- 写入记忆（自动打标、分层）
+- 检索记忆（关键词+语义混合）
+- 生命周期管理（压缩、归档、删除）
+
+### 2.2 STM Buffer
+
+| 字段 | 说明 |
+|------|------|
+| 文件 | `memory/stm-current.md` |
+| 刷新 | 每会话开始时重置时间戳 |
+| 压缩 | 每日 23:50 自动执行 `stm-ltm-compress.sh` |
+
+**STM 内容格式**：
+```markdown
+# STM - 当前会话缓冲
+
+## 📋 本次会话记录
+### 会话信息
+- **会话开始**: 2026-05-07 17:00 CST
+### 关键决策
+<!-- 记录本次重要决策 -->
+### 用户偏好/变化
+<!-- 记录新偏好 -->
+### 待归档到 LTM 的事实
+<!-- 需要持久化的信息 -->
+```
+
+### 2.3 LTM Archive
+
+| 字段 | 说明 |
+|------|------|
+| 文件 | `memory/YYYY-MM-DD.md` |
+| 来源 | STM 压缩 + 手动写入 |
+| 保留 | 无上限，按日期归档 |
+
+### 2.4 KG-Lite Index
+
+**位置**：MEMORY.md 顶部
+
+**格式**：
+```markdown
+## 🗺️ Memory Index (KG-Lite)
+
+> 结构: [实体] -> [关系] -> [值/实体]
+
+- [NAS] -> IP -> 192.168.50.20
+- [竞彩爪] -> 位置 -> 192.168.50.2
+- [竞彩爪] -> SSH端口 -> 33
+```
+
+**检索优先级**：
+1. 查 KG-Lite 索引（毫秒级）
+2. 命中 → 直接返回
+3. 未命中 → 全文语义搜索
+
+---
+
+## 3. 存储层
+
+### 3.1 File Store（默认）
+
+```javascript
+const store = new FileStore({
+  basePath: '~/.openclaw/agents/main',
+  format: 'json',  // json | markdown
+});
+```
+
+### 3.2 SQLite Store（可选）
+
+```javascript
+const store = new SQLiteStore({
+  path: '~/.openclaw/agents/main/.memory/memory.db',
+});
+```
+
+### 3.3 Hybrid Store（推荐）
+
+自动选择：
+- 写入 → File Store
+- 检索 → SQLite 向量索引
+
+---
+
+## 4. 检索层
+
+### 4.1 混合检索策略
+
+```javascript
+const { HybridSearch } = require('./lib/retrieval/hybrid-search');
+
+const search = new HybridSearch({
+  vectorIndex: 'path/to/vector.db',
+  keywordIndex: 'path/to/keyword.db',
+});
+
+const results = await search.query({
+  text: '用户偏好什么模型',
+  layers: ['observations', 'mentalModels'],
+  topK: 5,
+  keywordBoost: 0.3,
+  semanticBoost: 0.7,
+});
+```
+
+### 4.2 检索流程
+
+```
+1. 解析查询 → 关键词 + 语义向量
+2. KG-Lite 快速匹配
+3. 未命中 → 向量相似度搜索
+4. 未命中 → 关键词倒排索引
+5. 合并、去重、排序
+6. 返回 Top-K 结果
+```
+
+---
+
+## 5. 跨 Agent 共享
+
+### 5.1 共享架构
+
+```
+~/.openclaw/agents/
+├── shared/              # 共享记忆池
+│   ├── mentalModels.md   # 强制共享
+│   ├── worldFacts.md     # 强制共享
+│   ├── observations.md   # 按需共享
+│   └── experiences.md    # 按需共享
+├── main/                 # 主 Agent
+│   ├── MEMORY.md
+│   └── memory/
+│       ├── stm-current.md
+│       └── YYYY-MM-DD.md
+└── [other agents]/      # 其他 Agent
+```
+
+### 5.2 层级共享策略
+
+| 层级 | 共享策略 | 说明 |
+|------|---------|------|
+| Mental Models | 强制共享 | 核心原则，最佳实践 |
+| World Facts | 强制共享 | 系统配置，用户信息 |
+| Observations | 按需共享 | 模式洞察，可贡献 |
+| Experiences | 按需共享 | 个人经历，选择性 |
+| Ephemeral | 不共享 | 会话级，无需共享 |
+
+### 5.3 Agent Context
+
+```javascript
+const { AgentContext } = require('./lib/multi-agent');
+
+const ctx = new AgentContext('main');
+
+// 写入共享记忆
+await ctx.writeShared('observations', '英超保级队主场强势', {
+  tags: ['竞彩', '经验']
+});
+
+// 查询团队记忆
+const results = await ctx.queryTeam('保级队分析');
+
+// 团队统计
+const stats = await ctx.teamStats();
+```
+
+---
+
+## 6. SMB 备份
+
+### 6.1 配置
 
 ```bash
-# 检查容量
-npm run check
+# 环境变量（可选，覆盖默认）
+export SMB_SERVER="192.168.50.20"
+export SMB_SHARE="智能体记忆"
+export SMB_USER="jinghao"
+export SMB_PASS="Jing1234@"
+export SMB_REMOTE_PATH="总控爪"
+```
 
-# 检索
-npm run tempr "用户"
+### 6.2 备份内容
 
-# 压缩
-npm run consolidate
+- `MEMORY.md` — 主记忆文件
+- `memory/*.md` — 所有记忆归档
+- `manifest.json` — 备份元数据
 
-# 备份
-npm run backup
+### 6.3 定时任务
 
-# 导出
-npm run export-json
+```bash
+# 每日 23:55 执行
+55 23 * * * bash /path/to/backup-memory-smb.sh
 ```
 
 ---
 
-**文档版本**: 2.0.0  
-**最后更新**: 2026-04-11
+## 7. STM→LTM 压缩流程
+
+### 7.1 压缩脚本
+
+```bash
+bash scripts/stm-ltm-compress.sh
+```
+
+### 7.2 执行流程
+
+```
+1. 检查 STM 是否有内容（<200字节跳过）
+2. 提取三部分内容：
+   - 关键决策
+   - 用户偏好变化
+   - 新增事实
+3. 写入当日归档 memory/YYYY-MM-DD.md
+4. 提取 KG 三元组，更新 MEMORY.md 索引
+5. 清空 STM Buffer（保留模板）
+```
+
 ---
 
-## 6. MemOS-Style 增强功能 (v2.1.0+)
+## 8. 版本历史
 
-### 6.1 STM → LTM 分层压缩
-
-> 模拟 MemOS 的多层记忆架构，实现短期到长期的自动归档。
-
-| 组件 | 文件 | 说明 |
+| 版本 | 日期 | 变更 |
 |------|------|------|
-| **STM Buffer** | `memory/stm-current.md` | 实时会话缓冲，记录关键决策、偏好变化 |
-| **LTM Archive** | `memory/YYYY-MM-DD.md` | 每日归档，压缩后的长期记忆 |
-| **KG Index** | `MEMORY.md` 顶部索引区 | 实体关系三元组，快速检索 |
-| **压缩器** | `scripts/stm-ltm-compress.sh` | 每日 23:50 自动执行 |
-
-**KG-Lite 索引格式**:
-```markdown
-- [Entity] -> [Relation] -> [Value/Entity]
-- [NAS] -> IP -> 192.168.50.20
-- [NAS] -> SMB_Path -> //192.168.50.20/智能体记忆/总控爪
-```
-
-### 6.2 SMB 自动备份
-
-| 项目 | 配置 |
-|------|------|
-| **脚本** | `scripts/backup-memory-smb.sh` |
-| **目标** | `//192.168.50.20/智能体记忆/总控爪` |
-| **频率** | 每日 23:55 |
-| **内容** | MEMORY.md + memory/*.md |
-
-### 6.3 三层记忆架构
-
-```
-会话层 (STM)  ←→  长期层 (LTM)  ←→  知识层 (KG)
-     ↓                ↓               ↓
-stm-current.md    YYYY-MM-DD.md    MEMORY.md Index
-```
-
+| 2.1.0 | 2026-05-07 | 新增 MemOS 增强：STM/LTM/KG 分层 |
+| 2.0.0 | 2026-04-24 | 5 层架构，混合检索 |
+| 1.0.0 | 2026-04-11 | 初版发布 |

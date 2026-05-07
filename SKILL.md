@@ -1,87 +1,89 @@
-# Hindsight Memory System
+# Hindsight Memory System — OpenClaw Skill
 
-> 基于 5 层架构的 AI 智能体记忆系统，支持本地/云端向量检索
+> 基于 5 层架构 + MemOS 增强的 AI 智能体记忆系统
 
 ---
 
-## 🤝 跨 Agent 记忆共享（v2.1 新增）
+## 🤖 Skill 元信息
 
-> 多 Agent 协作场景下，团队共享记忆层，所有 Agent 都能读取和贡献
+| 字段 | 值 |
+|------|-----|
+| **名称** | hindsight-memory |
+| **版本** | 2.1.0 |
+| **作者** | simer11-jing |
+| **描述** | 5 层架构 + MemOS 增强，跨 Agent 记忆共享 |
+| **触发词** | 记忆、记住、查询、搜索、recall |
 
-### 架构
+---
 
-```
-~/.openclaw/agents/
-├── shared/                    # 团队共享记忆（所有 Agent 可见）
-│   ├── mentalModels.md
-│   ├── worldFacts.md
-│   ├── observations.md
-│   ├── experiences.md
-│   └── .index.json
-├── main/                      # Agent A
-│   ├── MEMORY.md
-│   └── memory/
-│       ├── mentalModels.md    # 私有（仅 main 可见）
-│       └── ...
-├── analyst/                   # Agent B
-│   ├── MEMORY.md
-│   └── memory/
-└── intelligence/              # Agent C
-    └── ...
+## 📋 核心功能
 
-共享层：mentalModels / worldFacts（高价值、长期不变）
-私有层：observations / experiences（个人经验、短期观察）
-```
+### 1. 记忆写入
+当用户说"记住 XXX"、"这个很重要"时：
+- 写入 `memory/stm-current.md`
+- 每日 23:50 自动压缩到 LTM
 
-### CLI 用法
+### 2. 记忆检索
+当用户说"之前记得什么"、"查询记忆"时：
+- 优先查 KG-Lite 索引
+- 未命中 → 语义/关键词搜索
 
-```bash
-# 团队统计
-node memory-team.js stats
+### 3. 跨 Agent 共享
+团队成员共享 mentalModels/worldFacts 层
 
-# 读取共享记忆
-node memory-team.js read --layer mentalModels
+---
 
-# 写入共享记忆（analyst Agent 贡献）
-OPENCLAW_AGENT_ID=analyst node memory-team.js write "英超保级队主场强势" --layer observations --tags 竞彩
+## 📁 关键文件
 
-# 查询团队记忆
-node memory-team.js query "用户偏好什么模型"
+| 文件 | 用途 |
+|------|------|
+| `MEMORY.md` | 主记忆文件（含 KG-Lite 索引） |
+| `memory/stm-current.md` | STM 实时缓冲 |
+| `memory/YYYY-MM-DD.md` | LTM 每日归档 |
+| `scripts/stm-ltm-compress.sh` | STM→LTM 压缩 |
+| `scripts/backup-memory-smb.sh` | SMB 备份 |
 
-# 列出所有 Agent
-node memory-team.js agents
-```
+---
 
-### 核心类
+## 🔧 配置
 
-```javascript
-const { AgentContext } = require('./lib/multi-agent');
-
-// 当前 Agent
-const ctx = new AgentContext('main');
-await ctx.writeShared('observations', '发现赔率临场暴升 > 0.3 需警惕', { tags: ['竞彩'] });
-const results = await ctx.queryTeam('竞彩分析经验');
-
-// 团队统计
-const stats = await ctx.teamStats();
-// { agents: ['main', 'analyst'], totalContributions: 42, layers: {...} }
+```yaml
+hindsight-memory:
+  enabled: true
+  basePath: ~/.openclaw/agents/main
+  storage: hybrid  # file | sqlite | hybrid
+  stm:
+    bufferFile: memory/stm-current.md
+    compressCron: "50 23 * * *"
+  kgLite:
+    enabled: true
+    indexFile: MEMORY.md
+  backup:
+    enabled: true
+    method: smb
+    cron: "55 23 * * *"
 ```
 
-### 层级共享策略
+---
 
-| 层级 | 共享策略 | 说明 |
-|------|---------|------|
-| mentalModels | 强制共享 | 核心原则、最佳实践 |
-| worldFacts | 强制共享 | 系统配置、用户信息 |
-| observations | 按需共享 | 模式洞察，可贡献给团队 |
-| experiences | 按需共享 | 个人经历，选择性共享 |
-| ephemeral | 不共享 | 会话级缓存，无需共享 |
+## 🏗️ OpenClaw 集成
 
-### 与 Kairos 集成
-
-```javascript
-// Kairos 生成画像 -> 写入团队共享层
-const kairosCtx = new AgentContext('main');
-const profile = await kairosCtx.queryTeam('用户偏好');
-// -> 团队成员都能查询到 main Agent 贡献的用户画像
+```yaml
+# openclaw.json
+agents:
+  list:
+    - id: main
+      skills:
+        - hindsight-memory
 ```
+
+---
+
+## 📌 使用示例
+
+| 用户输入 | 我的行为 |
+|---------|---------|
+| "记住 XXX" | 写入 STM buffer |
+| "这个很重要" | 写入 STM + 标记高优先级 |
+| "之前记得什么？" | 检索 KG-Lite + 全文 |
+| "查一下竞彩经验" | 语义搜索 observations 层 |

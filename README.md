@@ -1,6 +1,6 @@
 # 🧠 Hindsight Memory System
 
-> 基于 5 层架构的 AI 智能体记忆系统，支持本地/云端向量检索 + **跨 Agent 记忆共享**
+> 基于 **5 层架构 + MemOS 增强**的 AI 智能体记忆系统，支持本地/云端向量检索、**跨 Agent 记忆共享**、STM→LTM 自动压缩
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-Compatible-blue.svg)](https://openclaw.ai)
@@ -10,14 +10,42 @@
 
 ## ✨ 特性
 
+### 核心能力
 - 🏗️ **5 层架构** - Ephemeral → Experiences → Observations → World Facts → Mental Models
+- 🔄 **STM→LTM 压缩** - 模拟 MemOS，自动将会话缓冲归档到长期记忆
+- 🗺️ **KG-Lite 索引** - 实体关系三元组结构，快速检索核心事实
 - 💾 **持久化存储** - 文件级记忆，重启不丢失
 - 🔍 **智能检索** - 关键词 + 语义向量混合搜索
-- ☁️ **云端支持** - 支持自定义 API（OpenAI 兼容）
+
+### 协作能力
+- 🤝 **跨 Agent 共享** - 多智能体团队记忆层
+- ☁️ **云端备份** - SMB/WebDAV 自动备份到 NAS
 - 📏 **容量管理** - 自动警告，防止溢出
 - ⚙️ **灵活配置** - 多模型可选，本地/云端切换
-- 🔄 **定期审查** - 自动整理，保持精炼
-- 🤝 **跨 Agent 共享** - 多智能体团队记忆层，Kairos 推理结果自动注入
+
+---
+
+## 🏗️ 系统架构
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    会话层 (STM)                         │
+│         memory/stm-current.md — 实时缓冲              │
+│         ↓ 每日 23:50 自动压缩                          │
+└─────────────────────┬───────────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────────┐
+│                   长期层 (LTM)                          │
+│  memory/YYYY-MM-DD.md — 每日归档                       │
+│  MEMORY.md 顶部 KG-Lite 索引 — 实体关系三元组           │
+└─────────────────────┬───────────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────────┐
+│                   知识层 (KG-Lite)                      │
+│  Entity → Relation → Entity 结构化事实                  │
+│  例: [NAS] → IP → 192.168.50.20                       │
+└─────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -33,7 +61,7 @@ npm install
 
 ## 🚀 快速开始
 
-### 单 Agent 记忆
+### 1. 单 Agent 记忆
 
 ```bash
 # 容量检查
@@ -43,27 +71,66 @@ node scripts/memory-capacity-check.js
 node scripts/memory-tempr.js "用户偏好"
 
 # 语义搜索
-node scripts/memory-semantic.js 索引
 node scripts/memory-semantic.js "你的查询"
 ```
 
-### 团队记忆（跨 Agent 共享）
+### 2. STM→LTM 自动压缩（MemOS 增强）
 
 ```bash
-# 初始化共享目录
-mkdir -p ~/.openclaw/agents/shared
+# 每日 23:50 自动执行（加入 cron）
+50 23 * * * bash scripts/stm-ltm-compress.sh
 
-# 写入共享记忆
+# 手动触发
+bash scripts/stm-ltm-compress.sh
+```
+
+### 3. SMB 自动备份
+
+```bash
+# 编辑备份目标（默认配置）
+# 目标: //192.168.50.20/智能体记忆/总控爪
+# 频率: 每日 23:55
+
+# 手动执行备份
+bash scripts/backup-memory-smb.sh
+
+# 加入 cron
+55 23 * * * bash scripts/backup-memory-smb.sh
+```
+
+---
+
+## 🤝 团队记忆（跨 Agent 共享）
+
+### 架构
+
+```
+~/.openclaw/agents/
+├── shared/                    # 团队共享记忆（所有 Agent 可见）
+│   ├── mentalModels.md
+│   ├── worldFacts.md
+│   ├── observations.md
+│   └── experiences.md
+├── main/                      # Agent A
+│   ├── MEMORY.md              # 私有 + KG-Lite 索引
+│   └── memory/
+│       ├── stm-current.md     # STM 缓冲
+│       └── YYYY-MM-DD.md     # LTM 归档
+├── analyst/                   # Agent B
+└── intelligence/              # Agent C
+```
+
+### CLI 用法
+
+```bash
+# 团队统计
+node scripts/team/memory-team.js stats
+
+# 写入团队记忆
 node scripts/team/memory-team.js write observations "英超保级队主场强势"
 
 # 查询团队记忆
 node scripts/team/memory-team.js query "保级"
-
-# 查看团队统计
-node scripts/team/memory-team.js stats
-
-# 查看历史记录
-node scripts/team/memory-team.js history observations --limit=10
 
 # 对比两天差异
 node scripts/team/memory-team.js diff observations 2026-04-18 2026-04-19
@@ -71,126 +138,20 @@ node scripts/team/memory-team.js diff observations 2026-04-18 2026-04-19
 
 ---
 
-## 🤝 跨 Agent 记忆共享
+## 🗺️ KG-Lite 索引
 
-多个 Agent（main / analyst / intelligence / reviewer）共享同一个记忆层，Kairos 推理结果自动注入。
+MEMORY.md 顶部包含实体关系三元组索引：
 
-### 架构
+```markdown
+## 🗺️ Memory Index (KG-Lite)
 
-```
-main ──┐
-analyst ──┼──→ 共享记忆层 (shared/) ◄── Kairos 推理结论
-intelligence ──┤ mentalModels / worldFacts / observations / experiences
-reviewer ────┘
-```
-
-### AgentContext API
-
-```javascript
-const { AgentContext } = require('./lib/multi-agent/index.js');
-
-// 创建上下文（agentId 标识来源）
-const ctx = new AgentContext('analyst');
-
-// 写入共享记忆
-await ctx.writeShared('mentalModels', '战意优先原则', {
-  confidence: 0.95,
-  tags: ['竞彩', '核心原则']
-});
-
-// 读取所有共享记忆
-const all = await ctx.readAllShared();
-// → { mentalModels: [...], worldFacts: [...], observations: [...], experiences: [...] }
-
-// 按关键词查询
-const results = await ctx.queryTeam('保级', ['mentalModels', 'observations']);
-
-// 团队统计
-const stats = await ctx.teamStats();
-// → { totalEntries: 42, byLayer: {...}, byAgent: { analyst: 15, main: 27 } }
+- [Entity] -> [Relation] -> [Value/Entity]
+- [NAS] -> IP -> 192.168.50.20
+- [竞彩爪] -> 位置 -> 192.168.50.2
+- [专家克劳德] -> 类型 -> ACP Agent
 ```
 
-### Kairos 集成
-
-Kairos 推理结果自动写入共享记忆层（见 `kairos-learner.py` 中的 `write_to_hindsight_memory()`）。
-
----
-
-## 📚 5 层记忆架构
-
-```
-┌─────────────────────────────────────┐
-│   💫 Ephemeral (短期工作记忆)       │  ← 会话级，内存缓存
-├─────────────────────────────────────┤
-│      🎭 Experiences (具体经历)      │  ← 事件、对话记录
-├─────────────────────────────────────┤
-│   👁️ Observations (观察到的模式)    │  ← 洞察、规律
-├─────────────────────────────────────┤
-│      🌍 World Facts (客观事实)      │  ← 知识、配置
-├─────────────────────────────────────┤
-│   🧠 Mental Models (精炼智慧)       │  ← 核心原则、最佳实践
-└─────────────────────────────────────┘
-```
-
-### 共享层 vs 私有层
-
-| 层级 | 共享策略 | 说明 |
-|------|---------|------|
-| mentalModels | ✅ 强制共享 | 核心原则，所有 Agent 可见 |
-| worldFacts | ✅ 强制共享 | 客观事实，知识共建 |
-| observations | 🔄 按需共享 | 洞察，可标记来源 |
-| experiences | 🔄 按需共享 | 经历，可追溯 |
-| ephemeral | ❌ 不共享 | 短期会话缓存 |
-
----
-
-## 🔧 CLI 工具
-
-### 团队记忆 CLI
-
-```bash
-# 读取某层记忆
-node scripts/team/memory-team.js read observations
-
-# 写入记忆
-node scripts/team/memory-team.js write observations "新发现的内容"
-
-# 搜索
-node scripts/team/memory-team.js query "关键词"
-
-# 统计
-node scripts/team/memory-team.js stats
-
-# 历史记录
-node scripts/team/memory-team.js history observations --limit=10
-
-# 差异对比
-node scripts/team/memory-team.js diff observations 2026-04-18 2026-04-19
-```
-
-### 单 Agent CLI
-
-```bash
-node scripts/memory-capacity-check.js
-node scripts/memory-tempr.js "查询"
-node scripts/memory-semantic.js "查询"
-```
-
----
-
-## ☁️ 向量检索配置
-
-```bash
-# 启用本地向量
-npm run semantic -- config enable-local
-
-# 启用云端向量
-export OPENAI_API_KEY=your-key
-npm run semantic -- config enable-cloud your-key
-
-# 自定义 API（支持国内大模型）
-npm run semantic -- config set-url https://open.bigmodel.cn/api/paas/v4
-```
+检索时优先查索引，命中后直接返回，避免全文搜索。
 
 ---
 
@@ -198,78 +159,47 @@ npm run semantic -- config set-url https://open.bigmodel.cn/api/paas/v4
 
 ```
 hindsight-memory/
-├── lib/
-│   ├── memory-entry.js              # 数据模型
-│   ├── memory-manager.js           # 主入口
-│   ├── config.js                   # 配置管理
-│   ├── multi-agent/                # 跨 Agent 共享模块 ⭐
-│   │   ├── index.js                # 导出入口
-│   │   └── agent-context.js        # AgentContext 核心类
-│   ├── retrieval/                  # 检索模块
-│   │   ├── keyword-search.js
-│   │   └── semantic-search.js
-│   └── storage/                    # 存储模块
+├── ARCHITECTURE.md           # 详细架构文档
+├── CHANGELOG.md              # 版本变更
+├── CONTRIBUTING.md            # 贡献指南
+├── README.md                  # 本文档
+├── README_EN.md               # English version
+├── SKILL.md                   # OpenClaw Skill 定义
 ├── scripts/
-│   ├── memory-capacity-check.js
-│   ├── memory-tempr.js
-│   ├── memory-semantic.js
-│   └── team/                       # 团队协作 CLI ⭐
-│       └── memory-team.js
-├── templates/
-├── ARCHITECTURE.md
-├── SKILL.md
-├── README.md
-└── package.json
+│   ├── backup-memory-smb.sh   # SMB 备份脚本
+│   ├── stm-ltm-compress.sh    # STM→LTM 压缩脚本
+│   ├── memory-*.js            # 各类记忆操作脚本
+│   └── team/                  # 跨 Agent 共享
+├── lib/
+│   ├── index.js               # 核心导出
+│   ├── memory-manager.js       # 记忆管理器
+│   ├── memory-entry.js        # 记忆条目
+│   ├── storage/               # 存储层
+│   │   ├── file-store.js      # 文件存储
+│   │   ├── sqlite-store.js    # SQLite 存储
+│   │   └── hybrid-store.js    # 混合存储
+│   ├── retrieval/             # 检索层
+│   │   ├── keyword-search.js   # 关键词搜索
+│   │   ├── semantic-search.js  # 语义搜索
+│   │   └── hybrid-search.js   # 混合搜索
+│   └── multi-agent/           # 跨 Agent 支持
+│       └── agent-context.js   # Agent 上下文
+└── templates/
+    └── stm/                   # STM 缓冲模板
 ```
 
 ---
 
-## 🤝 接入新 Agent
+## 🔧 OpenClaw Skill 集成
 
-在 Agent 的 `AGENTS.md` 末尾添加：
+将此仓库安装为 OpenClaw Skill：
 
-```markdown
-## 团队共享记忆
-
-启动时可通过 AgentContext 读取团队共享记忆：
-
-const {AgentContext} = require('/path/to/hindsight-memory/lib/multi-agent/index.js');
-const ctx = new AgentContext('your-agent-id');
-
-const all = await ctx.readAllShared();
-const results = await ctx.queryTeam('关键词', ['mentalModels', 'observations']);
+```bash
+openclaw skills install hindsight-memory
 ```
 
 ---
 
-## ⚙️ 配置
+## 📜 许可证
 
-配置文件：`~/.openclaw/agents/main/memory-config.json`
-
-```json
-{
-  "vector": {
-    "enabled": false,
-    "type": "local",
-    "model": "Xenova/all-MiniLM-L6-v2",
-    "dimensions": 384,
-    "threshold": 0.7
-  }
-}
-```
-
----
-
-## 📝 更新日志
-
-See [CHANGELOG.md](CHANGELOG.md)
-
----
-
-## 📄 许可证
-
-[MIT License](LICENSE)
-
----
-
-_此项目由小爪（OpenClaw Agent）创建并维护_ 🐾
+MIT License - see [LICENSE](LICENSE)
