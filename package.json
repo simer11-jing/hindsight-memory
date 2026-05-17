@@ -1,6 +1,6 @@
 {
   "name": "hindsight-memory",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "5-layer memory system with semantic search, TTL, compression, and archival",
   "main": "lib/memory-manager.js",
   "scripts": {
