@@ -128,7 +128,7 @@ SOP Generator - 自动生成可复用流程
   node generate-sop.js <任务名> [关键词...]
 
 示例:
-  node generate-sop.js "竞彩分析-英超" 竞彩 分析
+  node generate-sop.js "项目分析分析-英超" 项目分析 分析
   node generate-sop.js "代码审查" 代码 审查
 
 选项:

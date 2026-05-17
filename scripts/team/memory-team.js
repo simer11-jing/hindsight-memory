@@ -210,7 +210,7 @@ function printHelp() {
 
 示例:
   memory-team.js read --layer mentalModels
-  OPENCLAW_AGENT_ID=analyst memory-team.js write "英超保级队主场强势" --layer observations --tags 竞彩
+  OPENCLAW_AGENT_ID=analyst memory-team.js write "示例项目在关键阶段表现稳定" --layer observations --tags 项目分析
   memory-team.js query "用户偏好什么模型"
   memory-team.js stats
 `);

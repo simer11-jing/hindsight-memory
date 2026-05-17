@@ -86,4 +86,4 @@ agents:
 | "记住 XXX" | 写入 STM buffer |
 | "这个很重要" | 写入 STM + 标记高优先级 |
 | "之前记得什么？" | 检索 KG-Lite + 全文 |
-| "查一下竞彩经验" | 语义搜索 observations 层 |
+| "查一下项目经验" | 语义搜索 observations 层 |

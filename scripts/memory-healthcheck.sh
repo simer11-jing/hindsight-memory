@@ -54,18 +54,25 @@ else
 fi
 
 # 5. embedding 可用性
-echo -n "✅ embedding: "
-curl -s --max-time 5 "http://192.168.50.2:3000/v1/embeddings" \
-  -H "Authorization: Bearer sk-tOE…B3Hy" \
+EMBEDDING_RESPONSE=$(curl -s --max-time 5 "http://192.168.50.2:3000/v1/embeddings" \
+  -H "Authorization: Bearer ${OPENCLAW_EMBEDDING_API_KEY:-}" \
   -H "Content-Type: application/json" \
-  -d '{"model":"text-embedding-3-small","input":"test"}' | python3 -c "
+  -d '{"model":"text-embedding-3-small","input":"test"}' 2>/dev/null || true)
+
+EMBEDDING_CHECK=$(printf '%s' "$EMBEDDING_RESPONSE" | python3 -c "
 import json,sys
-d=json.load(sys.stdin)
-if 'error' in d:
-    print('❌', d['error'].get('message','unknown'))
-else:
-    print('✅ 可用')
-" 2>/dev/null || echo "❌ 不可达"
+try:
+    d=json.load(sys.stdin)
+    print('ok' if 'error' not in d else 'error')
+except Exception:
+    print('unavailable')
+" 2>/dev/null || echo unavailable)
+
+case "$EMBEDDING_CHECK" in
+  ok) echo "✅ embedding: 可用" ;;
+  error) echo "⚠️  embedding: 远程不可用，已建议降级到本地/关键词检索" ;;
+  *) echo "⚠️  embedding: 不可达，已建议降级到本地/关键词检索" ;;
+esac
 
 # 6. FTS5 索引
 if [ -f "$BASE/memory/fts-index.db" ]; then

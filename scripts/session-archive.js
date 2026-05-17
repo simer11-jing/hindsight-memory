@@ -64,7 +64,7 @@ function extractSessionInfo(messages) {
   
   // 提取会话标签
   const tags = [];
-  if (userPrompt.includes('竞彩') || userPrompt.includes('赔率')) tags.push('竞彩');
+  if (userPrompt.includes('项目分析') || userPrompt.includes('指标')) tags.push('项目分析');
   if (userPrompt.includes('代码') || userPrompt.includes('编程')) tags.push('代码');
   if (userPrompt.includes('记忆') || userPrompt.includes('MEMORY')) tags.push('记忆');
   if (userPrompt.includes('配置') || userPrompt.includes('config')) tags.push('配置');
