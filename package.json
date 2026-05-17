@@ -1,6 +1,6 @@
 {
   "name": "hindsight-memory",
-  "version": "2.0.1",
+  "version": "2.1.1",
   "description": "5-layer memory system with semantic search, TTL, compression, and archival",
   "main": "lib/memory-manager.js",
   "scripts": {
@@ -14,7 +14,8 @@
     "semantic:disable": "node scripts/memory-semantic.js config disable",
     "semantic:status": "node scripts/memory-semantic.js 状态",
     "index": "node scripts/memory-index.js",
-    "vector:index": "node scripts/memory-semantic.js 索引"
+    "vector:index": "node scripts/memory-semantic.js 索引",
+    "healthcheck": "bash scripts/memory-healthcheck.sh"
   },
   "keywords": [
     "memory",
